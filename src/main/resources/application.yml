@@ -1,0 +1,15 @@
+server:
+  port: 5020
+  amap:
+    key: ${AMAP_KEY:12312}
+    url: https://restapi.amap.com
+spring:
+  application:
+    name: spring-mcp-demo
+  ai:
+    openai:
+      api-key: ${OPENAPI_API_KEY:sk-123123}
+      base-url: ${OPENAPI_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${OPENAPI_MODEL:deepseek-chat}
