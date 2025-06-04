@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -31,9 +32,9 @@ public class WeatherInfoService {
     @Resource
     private AmapConfigProperties amapConfigProperties;
 
-
     private Map<String, CityModel> cityModels;
 
+    // 初始化城市编码数据
     @PostConstruct
     public void init() {
         try (InputStream mapCityIo = getClass().getResourceAsStream("/xlsx/AMap_adcode_citycode.xlsx")) {
@@ -43,43 +44,48 @@ public class WeatherInfoService {
                     .head(CityModel.class)
                     .registerReadListener(dataListener)
                     .doRead();
-            this.cityModels = dataListener.getList()
-                    .stream()
-                    .collect(Collectors.toMap(CityModel::getCityName, cityModel -> cityModel, (t, t2) -> t));
+            this.cityModels = dataListener.getList().stream()
+                    .collect(Collectors.toMap(CityModel::getCityName,
+                            Function.identity(),
+                            (t, t2) -> t));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("加载城市编码数据失败", e);
         }
     }
 
-    @Tool(name = "queryAdCodeByCityName", description = "根据区县名称获取区域编码")
-    public Optional<String> queryAdCodeByCityName(@ToolParam(description = "区县名称") String cityName) {
-        log.info("queryAdCodeByCityName: {}", cityName);
+    // 工具方法：根据城市名查询区域编码
+    @Tool(name = "queryAdCodeByCityName",
+            description = "根据区县名称获取区域编码")
+    public Optional<String> queryAdCodeByCityName(
+            @ToolParam(description = "区县名称") String cityName) {
+
+        log.info("查询城市编码: {}", cityName);
         return Optional.ofNullable(cityModels.get(cityName))
                 .map(CityModel::getAdCode);
     }
 
-    @Tool(name = "queryByAdCode", description = "根据区域编码查询天气预报")
-    public WeatherResponse queryByAdCode(@ToolParam(description = "区域编码") String adCode) {
-        log.info("queryByAdCode: {}", adCode);
-        WebClient client = WebClient.builder()
-                .baseUrl(amapConfigProperties.getUrl()).build();
-        WeatherResponse weatherResponse = client.get()
-                .uri("/v3/weather/weatherInfo?key=" + amapConfigProperties.getKey()
-                     + "&city=" + adCode
-                     + "&extensions=all")
-//                .attribute("key", amapConfigProperties.getKey())
-//                .attribute("city", adCode)
-//                .attribute("extensions", "all")
-//                .header("User-Agent", "spring-mcp-demo")
+    // 工具方法：根据区域编码查询天气
+    @Tool(name = "queryByAdCode",
+            description = "根据区域编码查询天气预报")
+    public WeatherResponse queryByAdCode(
+            @ToolParam(description = "区域编码") String adCode) {
+
+        log.info("查询天气信息，区域编码: {}", adCode);
+
+        return WebClient.builder()
+                .baseUrl(amapConfigProperties.getUrl())
+                .build()
+                .get()
+                .uri(uriBuilder -> uriBuilder.path("/v3/weather/weatherInfo")
+                        .queryParam("key", amapConfigProperties.getKey())
+                        .queryParam("city", adCode)
+                        .queryParam("extensions", "all")
+                        .build())
                 .retrieve()
-                .onStatus(status -> {
-                            log.info("status: {}", status);
-                            return status.is4xxClientError();
-                        },
-                        response -> Mono.error(new RuntimeException("Not found")))
-                .bodyToMono(WeatherResponse.class).block();
-        log.info("weatherResponse: {}", weatherResponse);
-        return weatherResponse;
+                .onStatus(HttpStatusCode::isError, response ->
+                        Mono.error(new RuntimeException("高德天气服务异常")))
+                .bodyToMono(WeatherResponse.class)
+                .block();
     }
 
 }

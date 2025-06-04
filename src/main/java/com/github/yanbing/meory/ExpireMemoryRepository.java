@@ -13,8 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 
@@ -22,7 +20,7 @@ import java.util.concurrent.TimeUnit;
  * @author dingyunwei
  */
 @Slf4j
-public class ExpiredMemoryRepository implements ChatMemoryRepository {
+public class ExpireMemoryRepository implements ChatMemoryRepository {
 
     private final Map<String, List<Message>> chatMemoryStore = new ConcurrentHashMap<>();
 
@@ -32,7 +30,7 @@ public class ExpiredMemoryRepository implements ChatMemoryRepository {
 
     private  final int MAX_TIME_OUT = 60;
 
-    public ExpiredMemoryRepository() {
+    public ExpireMemoryRepository() {
         this.initTask();
     }
 
